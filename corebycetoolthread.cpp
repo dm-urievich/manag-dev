@@ -1,5 +1,12 @@
 #include "corebycetoolthread.h"
 
+#include <QFileInfo>
+#include <QDateTime>
+
+const QString DEVICES_CONF_FILE = "../devices-conf.xml";
+const QString MODULE_EVENTS_FILE = "../../moduleEvents.xml";
+const QString MODULE_SOCKETS_FILE = "../../moduleSockets.xml";
+
 CoreByceToolThread::CoreByceToolThread(QObject *parent) :
     QThread(parent)
 {
@@ -8,6 +15,9 @@ CoreByceToolThread::CoreByceToolThread(QObject *parent) :
 
     mbPort = NULL;
 
+    m_readSocketsTimer = new QTimer(this);
+
+    connect(m_readSocketsTimer, SIGNAL(timeout()), this, SLOT(parseSockets()));
     connect(transferHardwareModules, SIGNAL(eventInModule(bool)), this, SLOT(generateXmlHardware(bool)));
     connect(this, SIGNAL(setTransferPeriod(int)), transferHardwareModules, SLOT(setPeriod(int)));
 }
@@ -15,11 +25,13 @@ CoreByceToolThread::CoreByceToolThread(QObject *parent) :
 void CoreByceToolThread::run()
 {
     // заполнить вектор устройствами
-    findDevices("config.xml");
+    findDevices(DEVICES_CONF_FILE);
 
     portOpenClose();
 
     transferHardwareModules->start();
+
+    m_readSocketsTimer->start(1000);
 
     this->exec();
 }
@@ -181,7 +193,7 @@ void CoreByceToolThread::generateXmlHardware(bool isEvent)
 {
     QVector<Hardware*>::Iterator device;
 
-    QFile outFile("moduleEvents.xml");
+    QFile outFile(MODULE_EVENTS_FILE);
     if (outFile.open(QIODevice::WriteOnly)) {
         QTextStream out(&outFile);
         out.setCodec("UTF-8");
@@ -211,11 +223,20 @@ void CoreByceToolThread::generateXmlHardware(bool isEvent)
 void CoreByceToolThread::parseSockets()
 {
     QDomDocument doc("module");
-    QFile inFile("moduleSockets.xml");
+    QFile inFile(MODULE_SOCKETS_FILE);
     QString errorParse;
     QVector<Hardware*>::iterator module; //= hardwareVector.begin();
     int errorLine;
     int idModule = 0;
+
+    static QDateTime lastModif;
+    QDateTime curModif;
+    QFileInfo fileDate(MODULE_SOCKETS_FILE);
+    curModif = fileDate.lastModified();
+    if (curModif <= lastModif) {
+        return;
+    }
+    lastModif = curModif;
 
     if (!inFile.open(QIODevice::ReadOnly))
         return;

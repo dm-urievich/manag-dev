@@ -39,6 +39,8 @@ protected:
 private:
     void findDevices(QString fileName);
 
+    QTimer* m_readSocketsTimer;
+
     QSettings *portSettings;
 
     TransferThread* transferHardwareModules;

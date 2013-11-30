@@ -6,25 +6,25 @@ Hardware::Hardware(QObject *parent, QString n) :
       name(n)
 {
     //mbPort_ = 0;
-    refreshEvent_ = false;
-    isFirstRefresh_ = true;
+    m_refreshEvent = false;
+    m_isFirstRefresh = true;
 }
 
-modbus_t* Hardware::mbPort_ = 0;
+modbus_t* Hardware::m_mbPort = 0;
 
 void Hardware::setMbPort(modbus_t *port)
 {
-    mbPort_ = port;
+    m_mbPort = port;
 }
 
 void Hardware::setMbAddr(int addr)
 {
-    mbAddr_ = addr;
+    m_mbAddr = addr;
 }
 
 int Hardware::getMbAddr(void)
 {
-    return mbAddr_;
+    return m_mbAddr;
 }
 
 // чтение одного регистра
@@ -41,9 +41,9 @@ quint16 Hardware::readReg(int regAddr)
 // чтение группы регистров
 int Hardware::readRegisters(int regAddr, int cont, quint16 *data)
 {
-    if (mbPort_ != 0) {
-        modbus_set_slave(mbPort_, mbAddr_);
-        return modbus_read_registers(mbPort_, regAddr, cont, data);
+    if (m_mbPort != 0) {
+        modbus_set_slave(m_mbPort, m_mbAddr);
+        return modbus_read_registers(m_mbPort, regAddr, cont, data);
     }
     else {
         for (int i = 0; i < cont; i++) {
@@ -56,9 +56,9 @@ int Hardware::readRegisters(int regAddr, int cont, quint16 *data)
 // запись одного регистра
 void Hardware::writeReg(int regAddr, quint16 data)
 {
-    if (mbPort_ != 0) {
-        modbus_set_slave(mbPort_, mbAddr_);
-        modbus_write_register(mbPort_, regAddr, data);
+    if (m_mbPort != 0) {
+        modbus_set_slave(m_mbPort, m_mbAddr);
+        modbus_write_register(m_mbPort, regAddr, data);
     }
 }
 
@@ -69,7 +69,7 @@ void Hardware::generateXml(QTextStream &out)
     QDomElement addr = hardware.createElement("mbAddr");
     QDomElement nameDev = hardware.createElement("name");
     QDomText nameModule = hardware.createTextNode(name);
-    QDomText addrModule = hardware.createTextNode(QString::number(mbAddr_));
+    QDomText addrModule = hardware.createTextNode(QString::number(m_mbAddr));
 
     hardware.appendChild(root);
     root.appendChild(addr);

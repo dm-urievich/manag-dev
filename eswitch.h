@@ -40,12 +40,15 @@ public:
     bool eSwitchOutState;
     bool dInState;
     int adcData;
+    bool ledState;
     int adcHysteresis;
 
     bool getState(void);
     void setState(int state);
     void on(void);
     void off(void);
+    void ledOn(void);
+    void ledOff(void);
 
     bool refresh(void);
     bool isEvent(void);
@@ -57,11 +60,11 @@ signals:
     void dInFall(void);
 
 private:
-    bool raiseEvent_;
-    bool fallEvent_;
-    bool adcEvent_;
-    bool onEvent_;
-    bool offEvent_;
+    bool m_raiseEvent;
+    bool m_fallEvent;
+    bool m_adcEvent;
+    bool m_onEvent;
+    bool m_offEvent;
 
 };
 

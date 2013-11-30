@@ -3,10 +3,10 @@
 TransferThread::TransferThread(QVector<Hardware *> *hardwareVector, QMutex* lockHardwareVector, QObject *parent) :
     QThread(parent)
 {
-    hardwareVector_ = hardwareVector;
-    lockHardwareVector_ = lockHardwareVector;
+    m_hardwareVector = hardwareVector;
+    m_lockHardwareVector = lockHardwareVector;
 
-    period_ = 1000;     // по умолчанию будет 1 с
+    m_period = 1000;     // по умолчанию будет 1 с
 }
 
 void TransferThread::run()
@@ -19,8 +19,8 @@ void TransferThread::run()
 
     for (;;) {
         timer.restart();        // или за мютексом?
-        lockHardwareVector_->lock();
-        for (device = hardwareVector_->begin(); device != hardwareVector_->end(); ++device) {
+        m_lockHardwareVector->lock();
+        for (device = m_hardwareVector->begin(); device != m_hardwareVector->end(); ++device) {
             if ((*device)->refresh()) {
                 if ((*device)->isEvent()) {
                     isEvent = true;
@@ -41,7 +41,7 @@ void TransferThread::run()
             }
             msleep(2);  // время на раздупление (скорее аппаратной части)
         }
-        lockHardwareVector_->unlock();
+        m_lockHardwareVector->unlock();
 
         emit transferTime(timer.elapsed());
 
@@ -51,11 +51,11 @@ void TransferThread::run()
         }
 
         // для честного опроса нужно от периода вычитать время потраченное на выполнение
-        msleep(period_);        // нужно в это время парсить xml с сокетами
+        msleep(m_period);        // нужно в это время парсить xml с сокетами
     }
 }
 
 void TransferThread::setPeriod(int data)
 {
-    period_ = data;
+    m_period = data;
 }

@@ -21,10 +21,10 @@ protected:
     void run();
 
 private:
-    volatile unsigned int period_;
-    QVector<Hardware*> *hardwareVector_;
+    volatile unsigned int m_period;
+    QVector<Hardware*> *m_hardwareVector;
 
-    QMutex* lockHardwareVector_;
+    QMutex* m_lockHardwareVector;
     
 signals:
     void transferTime(int time);

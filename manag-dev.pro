@@ -44,3 +44,6 @@ HEADERS += \
     3rdparty/libmodbus/config.h \
     eswitch.h
 
+OTHER_FILES += \
+    ../devices-conf.xml
+

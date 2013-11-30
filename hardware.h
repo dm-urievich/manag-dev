@@ -40,12 +40,12 @@ public:
     virtual void parseXml(QDomElement &domElement) = 0;
 
 protected:
-    static modbus_t *mbPort_;
+    static modbus_t *m_mbPort;
     int readRegisters(int regAddr, int cont, quint16* data);
 
-    int mbAddr_;
-    bool refreshEvent_;         // событие для обновления данных с девайса
-    bool isFirstRefresh_;       // признак первого обмена
+    int m_mbAddr;
+    bool m_refreshEvent;         // событие для обновления данных с девайса
+    bool m_isFirstRefresh;       // признак первого обмена
 
 private:
 
