@@ -25,15 +25,6 @@ void TransferThread::run()
                 if ((*device)->isEvent()) {
                     isEvent = true;
                     qDebug() << "Event in " << (*device)->name;
-                    /*
-                    QFile file((*device)->name + ".xml");
-                    if (file.open(QIODevice::WriteOnly)) {
-                        outXml = new QTextStream(&file);
-                        (*device)->generateXml(*outXml);
-                        file.close();
-                        delete outXml;
-                    }
-                    */
                 }
             }
             else {

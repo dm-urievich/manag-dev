@@ -1,13 +1,8 @@
 #include "corebycetoolthread.h"
 
-#include <QFileInfo>
-#include <QDateTime>
-
 const int PORT = 2525;
 
 const QString DEVICES_CONF_FILE = "../devices-conf.xml";
-const QString MODULE_EVENTS_FILE = "../../moduleEvents.xml";
-const QString MODULE_SOCKETS_FILE = "../../moduleSockets.xml";
 
 CoreByceToolThread::CoreByceToolThread(QObject *parent) :
     QThread(parent)
@@ -238,30 +233,19 @@ void CoreByceToolThread::generateXmlHardware(bool isEvent)
 void CoreByceToolThread::parseSockets()
 {
     QDomDocument doc("module");
-    QFile inFile(MODULE_SOCKETS_FILE);
 
-    static QDateTime lastModif;
-    QDateTime curModif;
-    QFileInfo fileDate(MODULE_SOCKETS_FILE);
-    curModif = fileDate.lastModified();
-    if (curModif <= lastModif) {
-        return;
-    }
-    lastModif = curModif;
+    QTextStream inSocket(m_socket);
+    QString xmlData;
 
-    if (!inFile.open(QIODevice::ReadOnly)) {
-        return;
-    }
+    xmlData = inSocket.readAll();
 
     int errorLine;
     QString errorParse;
-    if (!doc.setContent(&inFile, &errorParse, &errorLine)) {
+    if (!doc.setContent(xmlData, &errorParse, &errorLine)) {
         qDebug() << "Error: " << errorParse;
         qDebug() << "in line: " << errorLine << endl;
-        inFile.close();
         return;
     }
-    inFile.close();
 
     QDomElement docElem = doc.documentElement();
 
