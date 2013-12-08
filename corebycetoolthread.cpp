@@ -3,6 +3,8 @@
 #include <QFileInfo>
 #include <QDateTime>
 
+const int PORT = 2525;
+
 const QString DEVICES_CONF_FILE = "../devices-conf.xml";
 const QString MODULE_EVENTS_FILE = "../../moduleEvents.xml";
 const QString MODULE_SOCKETS_FILE = "../../moduleSockets.xml";
@@ -17,7 +19,14 @@ CoreByceToolThread::CoreByceToolThread(QObject *parent) :
 
     m_readSocketsTimer = new QTimer(this);
 
-    connect(m_readSocketsTimer, SIGNAL(timeout()), this, SLOT(parseSockets()));
+    m_socket = new QTcpSocket(this);
+
+    m_socket->connectToHost("localhost", PORT);
+
+    connect(m_socket, SIGNAL(readyRead()), this, SLOT(parseSockets()));
+    connect(m_socket, SIGNAL(error(QAbstractSocket::SocketError)), this, SLOT(errorConnect(QAbstractSocket::SocketError)));
+
+//    connect(m_readSocketsTimer, SIGNAL(timeout()), this, SLOT(parseSockets()));
     connect(transferHardwareModules, SIGNAL(eventInModule(bool)), this, SLOT(generateXmlHardware(bool)));
     connect(this, SIGNAL(setTransferPeriod(int)), transferHardwareModules, SLOT(setPeriod(int)));
 }
@@ -45,6 +54,7 @@ void CoreByceToolThread::portOpenClose(void)
     int baud;
     int dataBit = 1;
     int stopBit;
+    int requestPeriod = 1000;
 
     portName = portSettings->value("portName").toString();
 
@@ -57,11 +67,14 @@ void CoreByceToolThread::portOpenClose(void)
         cin >> parity;
         cout << "write stop bit's" << endl;
         cin >> stopBit;
+        cout << "write request period in ms" << endl;
+        cin >> requestPeriod;
     }
     else {
         parity = portSettings->value("parity").toString();
         baud = portSettings->value("baud").toInt();
         stopBit = portSettings->value("stopBits").toInt();
+        requestPeriod = portSettings->value("period").toInt();
     }
 
     portPath = "/dev/" + portName;
@@ -70,6 +83,7 @@ void CoreByceToolThread::portOpenClose(void)
     cout << "boudrate: " << baud << endl;
     cout << "parity: " << parity << endl;
     cout << "stop bit: " << stopBit << endl;
+    cout << "request period: " << requestPeriod << endl;
 
     if (mbPort == NULL) {         // порт закрыт
         mbPort = modbus_new_rtu(portPath.toAscii().constData(), baud, parity.toAscii().at(0), dataBit, stopBit, 0);
@@ -92,11 +106,14 @@ void CoreByceToolThread::portOpenClose(void)
         Hardware::setMbPort(NULL);
     }
 
+    transferHardwareModules->setPeriod(requestPeriod);
+
     // write to file
     portSettings->setValue("portName", portName);
     portSettings->setValue("baud", baud);
     portSettings->setValue("parity", parity);
     portSettings->setValue("stopBits", stopBit);
+    portSettings->setValue("period", requestPeriod);
 }
 
 void CoreByceToolThread::findDevices(QString fileName)
@@ -193,41 +210,35 @@ void CoreByceToolThread::generateXmlHardware(bool isEvent)
 {
     QVector<Hardware*>::Iterator device;
 
-    QFile outFile(MODULE_EVENTS_FILE);
-    if (outFile.open(QIODevice::WriteOnly)) {
-        QTextStream out(&outFile);
-        out.setCodec("UTF-8");
-        out << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
-        out << "<module>\n";
+    QString xmlData;
 
-        lockHardwareVector.lock();
-        for (device = hardwareVector.begin(); device != hardwareVector.end(); ++device) {
-            if (isEvent) {
-                if ((*device)->isEvent()) {
-                    (*device)->generateXml(out);
-                }
-            }
-            else {
-                (*device)->generateXml(out);        // для инициализации Gui, генерим состояние всех девайсов
+    QTextStream out(&xmlData);
+    out.setCodec("UTF-8");
+    out << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
+    out << "<module>\n";
+
+    lockHardwareVector.lock();
+    for (device = hardwareVector.begin(); device != hardwareVector.end(); ++device) {
+        if (isEvent) {
+            if ((*device)->isEvent()) {
+                (*device)->generateXml(out);
             }
         }
-        lockHardwareVector.unlock();
-
-        out << "</module>\n";
-        outFile.close();
-
-        emit guiRefresh();
+        else {
+            (*device)->generateXml(out);        // для инициализации Gui, генерим состояние всех девайсов
+        }
     }
+    lockHardwareVector.unlock();
+
+    out << "</module>\n";
+
+    m_socket->write(xmlData.toUtf8());
 }
 
 void CoreByceToolThread::parseSockets()
 {
     QDomDocument doc("module");
     QFile inFile(MODULE_SOCKETS_FILE);
-    QString errorParse;
-    QVector<Hardware*>::iterator module; //= hardwareVector.begin();
-    int errorLine;
-    int idModule = 0;
 
     static QDateTime lastModif;
     QDateTime curModif;
@@ -238,8 +249,12 @@ void CoreByceToolThread::parseSockets()
     }
     lastModif = curModif;
 
-    if (!inFile.open(QIODevice::ReadOnly))
+    if (!inFile.open(QIODevice::ReadOnly)) {
         return;
+    }
+
+    int errorLine;
+    QString errorParse;
     if (!doc.setContent(&inFile, &errorParse, &errorLine)) {
         qDebug() << "Error: " << errorParse;
         qDebug() << "in line: " << errorLine << endl;
@@ -248,18 +263,15 @@ void CoreByceToolThread::parseSockets()
     }
     inFile.close();
 
-    // печатает имена всех непосредственных потомков
-    // внешнего элемента.
     QDomElement docElem = doc.documentElement();
 
+    QVector<Hardware*>::iterator module; //= hardwareVector.begin();
     lockHardwareVector.lock();
     QDomNode n = docElem.firstChild();
     while(!n.isNull()) {
         QDomElement e = n.toElement(); // пробуем преобразовать узел в элемент.
         if(!e.isNull()) {
-            //qDebug() << e.tagName() << '\n'; // узел действительно является элементом.
-            //qDebug() << "attr: " << e.attribute("id") << '\n';
-            idModule = e.attribute("id").toInt();
+            int idModule = e.attribute("id").toInt();
             if (idModule) {
                  // удобнее это вынести в функцию
                 for (module = hardwareVector.begin(); module != hardwareVector.end(); ++module) {
@@ -272,4 +284,9 @@ void CoreByceToolThread::parseSockets()
         n = n.nextSibling();
     }
     lockHardwareVector.unlock();
+}
+
+void CoreByceToolThread::errorConnect(QAbstractSocket::SocketError)
+{
+    qDebug() << "Error connect to server!!!";
 }

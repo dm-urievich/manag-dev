@@ -8,6 +8,7 @@
 #include <QDomDocument>
 #include <QTimer>
 #include <QTextStream>
+#include <QtNetwork/QTcpSocket>
 
 #include "hardware.h"
 #include "eswitch.h"
@@ -24,7 +25,6 @@ public:
     modbus_t *mbPort;
     
 signals:
-    void guiRefresh();
     void setTransferPeriod(int);
     void finish();
 
@@ -32,6 +32,9 @@ public slots:
     void createNewHardwareModule(Hardware *device);
     void generateXmlHardware(bool isEvent);
     void parseSockets(void);
+
+private slots:
+    void errorConnect(QAbstractSocket::SocketError);
 
 protected:
     void run();
@@ -41,7 +44,9 @@ private:
 
     QTimer* m_readSocketsTimer;
 
-    QSettings *portSettings;
+    QSettings* portSettings;
+
+    QTcpSocket* m_socket;
 
     TransferThread* transferHardwareModules;
 

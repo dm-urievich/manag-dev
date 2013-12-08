@@ -9,6 +9,7 @@ QT       += core
 QT       -= gui
 
 QT += xml
+QT += network
 
 TARGET = manag-dev
 CONFIG   += console
